@@ -1,0 +1,4 @@
+#!/bin/sh
+# Wrapper: venv do social-auto-upload (SAU), em ferramentas/social-auto-upload/
+D="$(cd "$(dirname "$0")" && pwd -P)"
+exec "$D/../../../social-auto-upload/.venv/bin/python" "$D/tiktok.py" "$@"

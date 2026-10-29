@@ -1,50 +1,98 @@
 # sau-tools
 
-Duas ferramentas de linha de comando para postar vídeo vertical por automação de navegador (patchright), cada uma com a sessão guardada num perfil local. Nada é publicado sem você pedir: o `sau-yt` sobe como **privado** por padrão.
+**Posta vídeo vertical no YouTube e no TikTok pela linha de comando, controlando o navegador de verdade.** Dois CLIs pequenos, um por rede, pensados pra um agente de código (Claude Code, Codex, Gemini…) ou você mesmo chamar com um comando e ler a última linha da saída.
 
-| ferramenta | rede | como autentica | depende de |
+Nada é publicado sem você pedir: o `sau-yt` sobe como **privado** por padrão e o `--dry-run` para antes de publicar.
+
+```bash
+# ensaio: sobe, preenche título e descrição, para na tela de Visibilidade (salva dry-run.png)
+sau-yt upload --file /videos/reel.mp4 --title "Meu Short" --dry-run
+
+# de verdade: a última linha do stdout é a URL do vídeo
+sau-yt upload --file /videos/reel.mp4 --title "Meu Short" --visibility unlisted
+```
+
+## Por que existe
+
+As APIs oficiais de upload exigem app aprovado, cotas e revisão. Aqui a automação usa o próprio Studio / página de upload logados, com a sessão guardada num perfil local. Por isso:
+
+- não há chave de API nem senha no código;
+- o upload se comporta como você subindo à mão;
+- o custo é manutenção: se a interface da rede mudar, o seletor quebra.
+
+Nasceu como substituto do uploader de YouTube do [social-auto-upload](https://github.com/dreammis/social-auto-upload) (SAU), que dava falso sucesso, quebrava no `set_publish_date` e perdia a sessão por cookie exportado. O TikTok reaproveita o `TiktokVideo` do SAU e só ganha um CLI.
+
+| ferramenta | rede | autenticação | depende de |
 |---|---|---|---|
-| `sau-yt/` | YouTube (Studio) | perfil persistente do Chrome em `sau-yt/.profile/` (`login` 1x) | venv do [Scrapling](https://github.com/D4Vinci/Scrapling) (traz o `patchright`) |
-| `sau-tiktok/` | TikTok | cookies em `cookies/` do [social-auto-upload](https://github.com/dreammis/social-auto-upload) (`login` 1x) | clone do SAU com venv Python 3.12 |
+| [`sau-yt/`](sau-yt) | YouTube (Studio) | perfil persistente do Chrome em `sau-yt/.profile/` (`login` uma vez) | [`patchright`](https://github.com/Kaliiiiiiiiii-Vinyzu/patchright) + Google Chrome instalado |
+| [`sau-tiktok/`](sau-tiktok) | TikTok | cookies em `cookies/` do SAU (`login` uma vez) | clone do [social-auto-upload](https://github.com/dreammis/social-auto-upload) com venv Python 3.12 |
 
-Os dois assumem esta pasta dentro de uma `ferramentas/` com `scrapling/` e `social-auto-upload/` irmãs (`ferramentas/_repos/sau-tools/`). Os wrappers têm esse caminho; ajuste se mudar o layout.
+## Requisitos e layout
+
+- macOS (testado) com Google Chrome. Linux deve funcionar; Windows não foi testado.
+- Os wrappers (`sau-yt/sau-yt`, `sau-tiktok/sau-tiktok`) chamam o Python de um venv **irmão deste repo**:
+
+```text
+ferramentas/
+├── _repos/sau-tools/        <- este repo
+├── scrapling/.venv/         <- venv que traz o patchright (para o sau-yt)
+└── social-auto-upload/.venv/ <- clone do SAU + venv Python 3.12 (para o sau-tiktok)
+```
+
+Outro layout? Edite a última linha de cada wrapper (é um `exec` de uma linha) para apontar pro seu Python. Pro `sau-yt` basta qualquer venv com `pip install patchright`.
 
 ## sau-yt
 
-Criado no lugar do uploader de YouTube do SAU, que dava falso sucesso, quebrava com `set_publish_date` e perdia a sessão por cookie exportado.
-
 ```bash
-sau-yt login                       # 1x: janela visível, fecha sozinha ao chegar no Studio
-sau-yt upload --file /caminho/absoluto/v.mp4 --title "Título" [--desc "..."] \
-              [--visibility private|unlisted|public] [--dry-run] [--show]
+sau-yt login          # 1x: abre o Chrome, você entra na conta; fecha sozinho ao chegar no Studio
+sau-yt upload --file /caminho/absoluto/v.mp4 --title "Título" \
+              [--desc "..."] [--visibility private|unlisted|public] [--dry-run] [--show]
 ```
 
-- **Padrão é `private`.** Público só com `--visibility public`.
-- `--dry-run` sobe o arquivo e para na tela de Visibilidade (deixa rascunho no Studio) e salva `dry-run.png`.
-- A última linha do stdout é a URL do vídeo; sai com erro se a publicação não for confirmada (print em `erro.png`).
-- Espera o rótulo de progresso perder o `%` antes de publicar (sem depender do idioma do Studio).
-- Não há flag de Short: vertical de até 3 min vira Short. Não agenda (o Studio tem "Programar", não implementado).
-- Validado com upload privado de teste. Rode o público você mesmo: agentes de código tendem a bloquear publicação pública pelo shell.
-- Reel republicado como Short: subir privado, esperar a checagem de direitos e só então publicar; Short com mais de 60 s que recebe claim fica bloqueado.
+| flag | efeito |
+|---|---|
+| `--file` | caminho do vídeo (obrigatório; sai com erro se não existir) |
+| `--title` / `--desc` | título (obrigatório) e descrição |
+| `--visibility` | `private` (padrão), `unlisted` ou `public` |
+| `--dry-run` | sobe e para na tela de Visibilidade, deixando rascunho no Studio; salva `dry-run.png` |
+| `--show` | mostra a janela (padrão: fora da tela) |
+
+Comportamento:
+
+- A **última linha do stdout é a URL do vídeo**. Se a publicação não for confirmada, sai com código de erro e salva `erro.png`.
+- Espera o rótulo de progresso perder o `%` antes de publicar (não depende do idioma do Studio).
+- Sessão expirada? Ele avisa `rode: sau-yt login`.
+- Sem flag de Short: vertical de até 3 min vira Short sozinho. Não agenda (o Studio tem "Programar"; não implementado).
+- Reel republicado como Short: suba privado, espere a checagem de direitos e só então publique. Short com mais de 60 s que recebe claim fica bloqueado.
 
 ## sau-tiktok
 
-O SAU não tem `sau tiktok`; isto liga o `TiktokVideo` dele a um CLI.
-
 ```bash
 sau-tiktok login
-sau-tiktok upload-video --file v.mp4 --title T [--tags a,b] [--schedule "AAAA-MM-DD HH:MM"]
+sau-tiktok upload-video --file v.mp4 --title "Título" [--tags a,b] [--schedule "AAAA-MM-DD HH:MM"] [--account nome]
 ```
 
-Roda com Chrome visível (o TikTok recusa headless), tem teto de 15 min e usa `Cmd+A` no título (no Mac `Control+A` só vai ao início da linha).
+- Roda com Chrome **visível**: o TikTok recusa headless.
+- Teto de 15 min por upload.
+- Usa `Cmd+A` pra limpar o título (no Mac, `Control+A` só vai ao início da linha).
+- `--account` escolhe qual arquivo de cookie usar (padrão `pedro`; troque pelo seu nome ao fazer o login).
 
 ## Testes
 
+Unitários, sem abrir navegador nem tocar na rede:
+
 ```bash
-cd sau-yt && ../../../scrapling/.venv/bin/python -m unittest test_yt
+cd sau-yt     && ../../../scrapling/.venv/bin/python -m unittest test_yt
 cd sau-tiktok && ../../../social-auto-upload/.venv/bin/python -m unittest test_tiktok
 ```
 
-## Não commitar
+Validação real: o `sau-yt` foi testado com upload privado. Rode o upload **público** você mesmo; agentes de código costumam bloquear publicação pública pelo shell.
 
-`.profile/` (sessão logada), `cookies/`, prints de erro. Já estão no `.gitignore`.
+## Segurança
+
+- `sau-yt/.profile/` guarda a sessão logada do seu Google; `cookies/` guarda a do TikTok. Tratam-se como senha. Ambos estão no `.gitignore` (assim como `*.png` de erro). Não os commite nem compartilhe.
+- Use só com contas suas e respeitando os termos de cada plataforma. Automação de navegador pode ser limitada ou bloqueada por elas.
+
+## Repos relacionados
+
+Parte do kit de ferramentas do projeto de redes sociais do [@SafeMantella](https://github.com/SafeMantella): [video-cut-pipeline](https://github.com/SafeMantella/video-cut-pipeline) (corte), [transcrever-ptbr](https://github.com/SafeMantella/transcrever-ptbr) (legendas), [social-toolbox](https://github.com/SafeMantella/social-toolbox) (pesquisa), [video-tools](https://github.com/SafeMantella/video-tools) (camadas e slides), [token-kit](https://github.com/SafeMantella/token-kit) (menos token).

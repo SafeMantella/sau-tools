@@ -96,3 +96,7 @@ Validação real: o `sau-yt` foi testado com upload privado. Rode o upload **pú
 ## Repos relacionados
 
 Parte do kit de ferramentas do projeto de redes sociais do [@SafeMantella](https://github.com/SafeMantella): [video-cut-pipeline](https://github.com/SafeMantella/video-cut-pipeline) (corte), [transcrever-ptbr](https://github.com/SafeMantella/transcrever-ptbr) (legendas), [social-toolbox](https://github.com/SafeMantella/social-toolbox) (pesquisa), [video-tools](https://github.com/SafeMantella/video-tools) (camadas e slides), [token-kit](https://github.com/SafeMantella/token-kit) (menos token).
+
+## Licença
+
+MIT. Veja [LICENSE](LICENSE).
